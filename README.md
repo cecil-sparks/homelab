@@ -34,3 +34,21 @@ Every service I deploy is documented with:
 ---
 
 ## 🧱 Architecture
+
+### Physical Layout — How the homelab fits into my home network
+
+![Homelab physical layout](./docs/diagrams/physical-layout.png)
+
+The M720q lives on my home LAN behind the router, with no ports forwarded to the internet. Remote access is handled exclusively through Tailscale — an encrypted, zero-trust tunnel that maps cleanly to NIST CSF **PR.AC-3** (remote access management) and CIS Control **12.7** (secure remote access).
+
+### Logical Layout — What runs inside the server
+
+![Homelab logical layout](./docs/diagrams/logical-layout.png)
+
+Proxmox VE 9.1 acts as the hypervisor, hosting isolated virtual machines:
+
+- **VM 1 — `docker-host`** — Always-on services running as Docker containers (Pi-hole, Jellyfin, Home Assistant, Immich, Tailscale, Uptime Kuma). Future additions: Wazuh/Graylog for log aggregation and Bitwarden for self-hosted credential storage.
+- **VM 2 — `audit-sandbox`** — Isolated environment for running CIS-CAT scans, testing misconfigurations safely, and generating compliance reports as audit evidence.
+- **VM 3 — `win-test`** *(later phase)* — Windows 11 evaluation VM for cross-platform hardening practice and CIS Benchmark scans.
+
+VM isolation is itself a control — compromising one VM does not equal compromising all of them. This maps to NIST CSF **PR.AC-5** (network integrity protected) and CIS Control **4** (secure configuration of enterprise assets).
