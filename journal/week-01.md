@@ -1,113 +1,95 @@
-# Week 1 — Pre-build Prep & Baseline Planning
+# Week 1 · Day 1 — Proxmox install marathon
 
-**Dates:** April 25 – May 3, 2026
-**Status:** 🟡 Hardware in transit
-**Security+ progress:** Domain 1 — General Security Concepts (in progress)
-
----
-
-## 🎯 Goals This Week
-
-- [x] Research hardware (with vendor risk considerations)
-- [x] Order Lenovo M720q + bootable USB
-- [x] Prepare bootable Proxmox installer
-- [ ] Begin Security+ Domain 1 study (CIA triad, control types, AAA)
-- [ ] Draft preliminary asset inventory
-- [ ] Watch one Proxmox install walkthrough
-- [ ] Plan IP addressing and segmentation strategy
+**Date:** May 15–16, 2026
+**Duration:** ~6 hours (with multiple stuck points)
+**Outcome:** ✅ Proxmox VE 9.1 operational on bare metal
 
 ---
 
-## 📅 Daily Log
+## TL;DR
 
-### Saturday, April 25
+Spent most of the night fighting BIOS boot media issues on a Lenovo M720q. Ventoy refused to enumerate. Discovered I'd lost the BIOS Administrator password from initial setup back in April. Performed a CMOS reset, rebuilt the BIOS hardening baseline from scratch, flashed a Rufus DD-mode USB, and successfully installed Proxmox VE 9.1. Web UI reachable from my laptop at `https://192.168.1.10:8006`.
 
-#### Hardware decisions — through a GRC lens
-Spent the day evaluating mini PC options. From a GRC perspective, the questions I asked weren't just "which is fastest?" but:
+Three findings documented. One still open.
 
-| Question | Why it matters in GRC |
+---
+
+## What I was trying to do
+
+Install Proxmox VE 9.1 on the M720q so I'd have a working hypervisor as the foundation for the rest of the homelab build.
+
+## What actually happened
+
+### Stuck Point 1: Ventoy USB not detected by BIOS
+
+I'd prepped a Ventoy USB weeks ago expecting it to "just work." It didn't — the M720q BIOS wouldn't list it as a boot option at all. Tried every USB port, toggled CSM, adjusted USB Enumeration Delay, disabled Smart USB Protection. No dice.
+
+→ Documented as [FINDING-002](../docs/findings/FINDING-002-boot-media-compatibility.md)
+
+### Stuck Point 2: Locked out of BIOS
+
+Tried to dig deeper into BIOS settings and realized I'd set an Administrator password back on April 29 during initial setup and never wrote it down. Classic credential management failure on a system I own.
+
+→ Documented as [FINDING-001](../docs/findings/FINDING-001-credential-management.md)
+
+**Remediation:** Powered off, opened the case (single thumbscrew + slide top), disconnected the CR2032 coin battery for 5 minutes, reconnected, reassembled. CMOS reset to defaults. Set a new password and saved it to Bitwarden immediately, with a paper backup in my safe.
+
+### Stuck Point 3: Rebuilding BIOS hardening
+
+After the CMOS reset, every BIOS setting was back to factory defaults. Walked through every tab and re-applied a documented hardening baseline. Where I had to leave a control in a less-hardened state (e.g., CSM enabled for installer compatibility), I documented the exception and the remediation date.
+
+→ See [BIOS Hardening Baseline v1.0](../docs/baselines/bios-hardening-baseline.md)
+
+### Stuck Point 4: Network gateway assumption
+
+During the Proxmox installer's network step, I'd planned to use `192.168.1.1` as the gateway. Checked my actual router and discovered AT&T Fiber's gateway is `192.168.1.254`. Updated the config in the installer.
+
+**Lesson:** Verify the actual network before committing values in an installer. A gateway typo would have left the host unreachable.
+
+---
+
+## Configuration as deployed
+
+| Setting | Value |
 |---|---|
-| What's the vendor's update/firmware track record? | Patch management is a foundational control |
-| Does the BIOS support modern security features (TPM, Secure Boot)? | Maps to CIS Control 4 — secure configuration |
-| Can I disable unused interfaces and ports? | Attack surface reduction |
-| Is community documentation strong? | Enables consistent, repeatable secure configuration |
-
-**Compared:**
-- **Lenovo M720q** (chosen) — strong enterprise lineage, broad community support, no NIC whitelist (lets me apply controls without vendor lock-in)
-- **Dell OptiPlex 7060 Micro** — also acceptable, slightly older
-- **HP EliteDesk 800 G5 Mini** — newer hardware but BIOS NIC whitelist limits my ability to apply controls; this is an example of vendor decisions creating compliance friction
-
-#### Created the installer
-- Installed Ventoy 1.1.12 on a SanDisk Ultra Flair 128GB USB 3.0
-- Loaded Proxmox VE 9.1 ISO onto the drive
-- Ventoy as a tool: useful for legitimate admins, but also a useful example of why **removable media** is a controlled item in most security frameworks (CIS Control 10, NIST SP 800-53 MP family). I'll document USB usage in my homelab acceptable-use policy.
-
-#### Initial risk thinking
-Before anything is even installed, I started a preliminary risk register:
-
-| Asset | Risk | Likelihood | Impact | Initial Treatment |
-|---|---|---|---|---|
-| Lenovo M720q | Physical theft | Low | Medium | Locate in restricted area; full-disk encryption |
-| Proxmox host | Unauthorized admin access | Medium | High | Strong password, MFA, SSH key auth |
-| VM data (photos, media) | Data loss from drive failure | Medium | Medium | Snapshots + offsite backup (Phase 4) |
-| Network exposure | Internet-facing services exploited | Medium | High | No port forwarding; Tailscale-only access |
-
-Will refine this in `/controls/risk-register.md` once the system is live.
-
-#### Security+ study
-- Began Professor Messer's SY0-701 series, episode 1
-- Reviewed the **CIA triad** and **control types** (preventive, detective, corrective, compensating)
-- Already useful — when planning network segmentation later this week, I'm thinking about it in those terms instead of just "how do I set up a VLAN?"
+| Hostname | `proxmox.lab.local` |
+| Management IP | `192.168.1.10/24` |
+| Gateway | `192.168.1.254` |
+| DNS | `192.168.1.254` |
+| Filesystem | ext4 |
+| Disk | WDC PC SN520 500 GB NVMe |
+| Web UI | `https://192.168.1.10:8006` |
 
 ---
 
-## 🛒 Shopping Recap
+## What I learned
 
-| Item | Vendor | Price | Status |
-|------|--------|-------|--------|
-| Lenovo ThinkCentre M720q (Refurbished) | Amazon Renewed | $250.00 | Ordered, ETA May 4 |
-| SanDisk Ultra Flair 128GB | Amazon | $25.99 | ✅ Received |
-| **Total spent** | | **$275.99** | |
-
----
-
-## 💡 Key Decisions (and the GRC Reasoning)
-
-### Hypervisor: Proxmox over bare-metal Linux
-**Why (technical):** Snapshots, VM isolation, web UI.
-**Why (GRC):** Snapshots = recovery controls. VM isolation = segmentation. Auditable VM lifecycle (create, modify, delete, snapshot) is closer to how enterprise infrastructure is governed than running services directly on the OS.
-
-### Refurbished hardware over new
-**Why (financial):** Saves ~$150.
-**Why (GRC):** Forces me to confront supply chain risk in a real way. I had to think about: vendor reputation (Amazon Renewed warranty), tamper-evidence (factory-resealed packaging), pre-installed software trust (I'm wiping it anyway). All of these come up in real third-party risk assessments.
-
-### Tailscale over open port forwarding
-**Why (technical):** Easier, no router config.
-**Why (GRC):** Maps cleanly to **NIST CSF PR.AC-3** (remote access is managed) and **CIS Control 12.7** (use of secure VPN/zero-trust connectivity). Reduces external attack surface to zero — a control I can document and demonstrate.
+1. **Credential management is the boring control that bites first.** Losing the BIOS password cost me an hour and required physical access. In a corporate environment this would have been a P1 ticket and a security incident.
+2. **Boot media compatibility is real.** Ventoy's clever multi-ISO trick relies on BIOS features that not every system implements. Rufus DD-mode writes the ISO byte-for-byte and "just works" — at the cost of one ISO per USB.
+3. **Always verify the network before you commit it.** Don't assume default gateways.
+4. **Document as you go, not after.** Every screenshot, every setting, every dead-end gets logged. That's the audit trail.
 
 ---
 
-## 🔜 Next Week
+## What's next
 
-When the M720q arrives:
-1. Document **physical setup** as evidence of asset deployment
-2. **BIOS configuration** — enable TPM, Secure Boot, virtualization extensions; document each setting
-3. **Install Proxmox VE 9.1** with full-disk encryption (recovery control + confidentiality)
-4. **Initial admin account hygiene** — strong password, no shared accounts (CIS Control 5, 6)
-5. **First snapshot** — my first documented recovery point
-6. **Update the risk register** with anything I learned during install
-7. **Start `/controls/controls-mapping.md`** with my first 5–10 mapped controls
+**Tomorrow (Week 1 Day 2):**
+- Log in to Proxmox web UI and explore the interface
+- Switch from the enterprise repo to the no-subscription repo
+- Run `apt update && apt full-upgrade -y`
+- Install Tailscale for out-of-band access (so I don't need to be on the home LAN to reach the host)
+- Take a snapshot of the clean-install state
+
+**This week:**
+- Plan firewall VM (pfSense or OPNsense)
+- Sketch VLAN segmentation plan
+- Start drafting Week 1 retrospective
+
+**Open finding to address:**
+- [FINDING-003](../docs/findings/FINDING-003-outdated-firmware.md) — BIOS firmware from July 2019. Needs an update before this host runs anything that matters.
 
 ---
 
-## 📸 Evidence Folder
+## Sleep status
 
-*(Will populate `/controls/evidence/` with install screenshots, BIOS settings, and config exports starting next week. Treating these as audit artifacts from day one.)*
-
----
-
-## 🧠 Reflection
-
-A homelab built without security thinking is just a server farm waiting to be embarrassing. A homelab built *with* security thinking is a portfolio piece. I'd rather move slowly and document well than move fast and have nothing to show an auditor — or a hiring manager.
-
-— Cecil
+🟢 Earned it.
