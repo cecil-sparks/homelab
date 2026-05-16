@@ -2,53 +2,113 @@
 
 > Building a personal homelab and treating it like a small business: assessing risks, applying controls, and documenting evidence — the way a GRC analyst would.
 
-**Status:** 🟡 Pre-launch — hardware arriving early May 2026
-**Career goal:** Aspiring GRC analyst, focused on IT audit & compliance
-**Currently studying:** [CompTIA Security+ (SY0-701)](https://www.comptia.org/certifications/security)
+**Status:** 🟢 **Day 1 Complete — Proxmox VE 9.1 hypervisor operational**
+**Last updated:** May 16, 2026
 
 ---
 
-## 🎯 Why This Repo Exists
+## Why this repo exists
 
-Most homelab repos document *how* to build things. This one focuses on **why** — the risk decisions, control choices, and compliance considerations behind every part of the build.
+I'm transitioning from 13+ years in law enforcement (Classification Specialist) into a career in **Governance, Risk, and Compliance (GRC)**. This homelab is my way of learning the technical foundations that GRC analysts need to evaluate — virtualization, network segmentation, identity management, logging, patching, and backup — by **building and securing it myself**.
 
-I'm pivoting into Governance, Risk, and Compliance (GRC). To understand what I'll one day audit, I need to first understand how IT systems are actually designed, secured, and operated. This homelab is my classroom.
+Every change in this repo is documented like an audit artifact:
 
-Every service I deploy is documented with:
+- **What** was changed
+- **Why** it was changed (the risk it addresses)
+- **Which framework control** it maps to (NIST CSF 2.0, CIS Controls v8, ISO 27001:2022)
+- **Evidence** of the change (commits, configs, screenshots)
 
-- **Risk assessment** — what could go wrong, how likely, how bad
-- **Controls applied** — what I did to prevent or detect it
-- **Framework mapping** — how those controls align to NIST CSF, CIS Controls v8, and ISO 27001:2022
-- **Evidence** — screenshots, configs, logs that prove the control works
-
----
-
-## 🖥️ The Environment Under Audit
-
-| Component | Model | Specs | Cost |
-|-----------|-------|-------|------|
-| Server | Lenovo ThinkCentre M720q Tiny | Intel i5-8400T (6 cores), 16GB DDR4, 500GB NVMe | $250 |
-| Bootable USB | SanDisk Ultra Flair 128GB USB 3.0 | Proxmox installer | $26 |
-| **Total investment** | | | **$276** |
+The goal: by the time I finish my Master's in Information Systems at Tarleton State, I'll have a portfolio that shows hiring managers I can **think like an auditor** and **speak the language of security operations**.
 
 ---
 
-## 🧱 Architecture
+## Current architecture
 
-### Physical Layout — How the homelab fits into my home network
+**Physical host:** Lenovo ThinkCentre M720q Tiny
+- CPU: Intel i5-8400T (6 cores, VT-x/VT-d enabled)
+- RAM: 16 GB DDR4
+- Storage: WDC PC SN520 500 GB NVMe SSD
+- Network: 1 GbE onboard
 
-![Homelab physical layout](./docs/diagrams/physical-layout.png)
+**Hypervisor:** Proxmox VE 9.1 (Debian 13 Trixie base)
+- Host: `proxmox.lab.local`
+- Management IP: `192.168.1.10/24` (static)
+- Web UI: `https://192.168.1.10:8006`
+- Filesystem: ext4 on local NVMe
 
-The M720q lives on my home LAN behind the router, with no ports forwarded to the internet. Remote access is handled exclusively through Tailscale — an encrypted, zero-trust tunnel that maps cleanly to NIST CSF **PR.AC-3** (remote access management) and CIS Control **12.7** (secure remote access).
+**Network:** AT&T Fiber gateway at `192.168.1.254`
 
-### Logical Layout — What runs inside the server
+---
 
-![Homelab logical layout](./docs/diagrams/logical-layout.png)
+## What's in this repo
 
-Proxmox VE 9.1 acts as the hypervisor, hosting isolated virtual machines:
+| Folder | What you'll find |
+|---|---|
+| [`docs/diagrams/`](docs/diagrams/) | Visual architecture and topology diagrams |
+| [`docs/findings/`](docs/findings/) | Issues discovered during build, with framework mappings and remediation |
+| [`docs/baselines/`](docs/baselines/) | Hardening baselines (BIOS, hypervisor, OS) |
+| [`docs/runbooks/`](docs/runbooks/) | Reproducible step-by-step procedures |
+| [`journal/`](journal/) | Day-by-day build log — what I did, what broke, what I learned |
+| [`tools.md`](tools.md) | Tooling inventory |
 
-- **VM 1 — `docker-host`** — Always-on services running as Docker containers (Pi-hole, Jellyfin, Home Assistant, Immich, Tailscale, Uptime Kuma). Future additions: Wazuh/Graylog for log aggregation and Bitwarden for self-hosted credential storage.
-- **VM 2 — `audit-sandbox`** — Isolated environment for running CIS-CAT scans, testing misconfigurations safely, and generating compliance reports as audit evidence.
-- **VM 3 — `win-test`** *(later phase)* — Windows 11 evaluation VM for cross-platform hardening practice and CIS Benchmark scans.
+---
 
-VM isolation is itself a control — compromising one VM does not equal compromising all of them. This maps to NIST CSF **PR.AC-5** (network integrity protected) and CIS Control **4** (secure configuration of enterprise assets).
+## Findings tracker
+
+| ID | Title | Severity | Status |
+|---|---|---|---|
+| [FINDING-001](docs/findings/FINDING-001-credential-management.md) | BIOS Administrator password loss | High | ✅ Resolved |
+| [FINDING-002](docs/findings/FINDING-002-boot-media-compatibility.md) | Ventoy USB not enumerated by host BIOS | Medium | ✅ Resolved |
+| [FINDING-003](docs/findings/FINDING-003-outdated-firmware.md) | BIOS firmware 6+ years out of date | Medium | 🟡 Open (Week 2) |
+
+---
+
+## Roadmap
+
+### ✅ Week 1 — Foundation
+- [x] Hardware provisioning and inventory
+- [x] BIOS hardening baseline established
+- [x] Proxmox VE 9.1 installed on bare metal
+- [x] Static IP assigned, web UI reachable
+- [x] Day 1 findings documented
+
+### 🟡 Week 2 — Hardening & Remediation
+- [ ] BIOS firmware update (remediate FINDING-003)
+- [ ] Switch Proxmox to no-subscription repo
+- [ ] Apply all available OS updates
+- [ ] Install Tailscale for out-of-band access
+- [ ] Re-enable Secure Boot
+- [ ] First VM snapshot
+
+### 🔵 Week 3+ — Capability Build-Out
+- [ ] First VM: pfSense or OPNsense firewall
+- [ ] VLAN segmentation
+- [ ] Centralized logging (Wazuh or Graylog)
+- [ ] Identity provider (Authentik or Keycloak)
+- [ ] Backup and disaster recovery procedures
+
+---
+
+## Framework mapping methodology
+
+Every finding and baseline in this repo includes mappings to:
+
+- **NIST Cybersecurity Framework 2.0** (Identify, Protect, Detect, Respond, Recover, Govern)
+- **CIS Critical Security Controls v8** (Implementation Group 1 targets)
+- **ISO/IEC 27001:2022** Annex A controls
+
+The mappings aren't theoretical — they show how a real-world configuration decision satisfies (or falls short of) a published control. This is the same exercise GRC analysts perform daily.
+
+---
+
+## About me
+
+I'm Cecil — based in Dallas, TX. Spent 13+ years in law enforcement as a Classification Specialist, Detention Training Officer, and Fiscal Division Specialist. Finishing my B.A.A.S. at Tarleton State University in July 2026, then starting a Master's in Information Systems with a cybersecurity specialization.
+
+You can follow the build in real time on X: [@CueTechPro](https://x.com/CueTechPro)
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
